@@ -1,5 +1,2 @@
 [build]
 filehash = false
-
-[watch]
-ignore = ["../target/"]

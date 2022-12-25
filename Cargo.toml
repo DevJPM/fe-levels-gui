@@ -9,12 +9,17 @@ rust-version = "1.60"
 
 
 [dependencies]
-egui = "0.19.0"
-eframe = { version = "0.19.0", features = ["persistence"] }
-cached = "0.40"
+egui = "0.20.0"
+eframe = { version = "0.20.0", features = ["persistence"] }
+cached = "0.41"
 itertools = "0.10"
-
-fe-levels = { path = "fe-levels", features = ["serde"]}
+wasm-bindgen-futures = "0.4"
+rand = "0.8"
+poll-promise = { version = "0.2", features = ["web"] }
+getrandom = { version = "0.2", features = ["custom"] }
+fe-levels = { path = "fe-levels"}
+serde_json = "1"
+chacha20 = "0.9"
 
 # You only need serde if you want app persistence:
 serde = { version = "1", features = ["derive"] }
@@ -22,6 +27,7 @@ serde = { version = "1", features = ["derive"] }
 # native:
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber = "0.3"
+arboard = "3"
 
 # web:
 [target.'cfg(target_arch = "wasm32")'.dependencies]

@@ -9,9 +9,9 @@ fn main() {
 
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        "eframe template",
+        "Fire-Emblem Level Analyzer",
         native_options,
-        Box::new(|cc| Box::new(fe_levels_gui::FeLevelGui::new(cc))),
+        Box::new(|cc| Box::new(fe_levels_gui::FeLevelGui::new(cc)))
     );
 }
 
@@ -25,10 +25,42 @@ fn main() {
     tracing_wasm::set_as_global_default();
 
     let web_options = eframe::WebOptions::default();
-    eframe::start_web(
-        "the_canvas_id", // hardcode it
-        web_options,
-        Box::new(|cc| Box::new(fe_levels_gui::FeLevelGui::new(cc))),
-    )
-    .expect("failed to start eframe");
+
+    wasm_bindgen_futures::spawn_local(async {
+        eframe::start_web(
+            "the_canvas_id", // hardcode it
+            web_options,
+            Box::new(|cc| Box::new(fe_levels_gui::FeLevelGui::new(cc)))
+        )
+        .await
+        .expect("failed to start eframe");
+    });
 }
+
+#[cfg(target_arch = "wasm32")]
+static RN_JESUS_IV : std::sync::Mutex<[u8; 12]> = std::sync::Mutex::new([0x24; 12]);
+
+#[cfg(target_arch = "wasm32")]
+fn rn_jesus(buffer : &mut [u8]) -> Result<(), getrandom::Error> {
+    let mut guard = RN_JESUS_IV
+        .lock()
+        .map_err(|_| getrandom::Error::WEB_GET_RANDOM_VALUES)?;
+    let copy = guard.clone();
+    let mut instance =
+        <chacha20::ChaCha20 as chacha20::cipher::KeyIvInit>::new(&[0x42; 32].into(), &copy.into());
+
+    let all_zeros = vec![0u8; buffer.len()];
+
+    chacha20::cipher::StreamCipher::apply_keystream_b2b(&mut instance, &all_zeros, buffer)
+        .map_err(|_| getrandom::Error::WEB_GET_RANDOM_VALUES)?;
+
+    let iv_zeros = [0u8; 12];
+
+    chacha20::cipher::StreamCipher::apply_keystream_b2b(&mut instance, &iv_zeros, guard.as_mut())
+        .map_err(|_| getrandom::Error::WEB_GET_RANDOM_VALUES)?;
+
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+getrandom::register_custom_getrandom!(rn_jesus);

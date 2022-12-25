@@ -1,0 +1,59 @@
+{
+  "stats": {
+    "def": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "skl": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "con": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "mov": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "lck": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "atk": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "spd": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "res": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    },
+    "hp": {
+      "base": 0,
+      "cap": 20,
+      "growth": 0,
+      "value": 0
+    }
+  },
+  "name": "Seth"
+}

@@ -1,0 +1,139 @@
+{
+    "character": {
+        "name (unused)": "Seth",
+        "stats": {
+            "hp": {
+                "base": 30,
+                "growth": 90,
+                "cap": 60
+            },
+            "atk": {
+                "base": 14,
+                "growth": 50,
+                "cap": 25
+            },
+            "skl": {
+                "base": 13,
+                "growth": 45,
+                "cap": 26
+            },
+            "spd": {
+                "base": 12,
+                "growth": 45,
+                "cap": 24
+            },
+            "lck": {
+                "base": 13,
+                "growth": 25,
+                "cap": 30
+            },
+            "def": {
+                "base": 11,
+                "growth": 40,
+                "cap": 25
+            },
+            "res": {
+                "base": 8,
+                "growth": 30,
+                "cap": 25
+            }
+        }
+    },
+    "comment": "new_level is not a necessary parameter but indicates the level post level-up. 30 is the bonus from the knight ward to her speed growth. 10^12 samples are simulated.",
+    "stat_changes": [
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 2
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 3
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 4
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 5
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 6
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 7
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 8
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 9
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {},
+            "retries_to_avoid_blank": 2,
+            "new_level": 10
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {
+                "speed": 30
+            },
+            "retries_to_avoid_blank": 2,
+            "new_level": 11
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {
+                "spd": 30
+            },
+            "retries_to_avoid_blank": 2,
+            "new_level": 12
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {
+                "spd": 30
+            },
+            "retries_to_avoid_blank": 2,
+            "new_level": 13
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {
+                "spd": 30
+            },
+            "retries_to_avoid_blank": 2,
+            "new_level": 14
+        },
+        {
+            "type": "LevelUp",
+            "temp_growth_bonus": {
+                "spd": 30
+            },
+            "retries_to_avoid_blank": 2,
+            "new_level": 15
+        }
+    ]
+}

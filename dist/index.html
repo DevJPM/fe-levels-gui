@@ -8,11 +8,11 @@
     <title>Fire Emblem Level-Up Analyser</title>
 
     <!-- config for our rust wasm binary. go to https://trunkrs.dev/assets/#rust for more customization -->
-    <script type="module">import init from '/fe_levels_gui.js';init('/fe_levels_gui_bg.wasm');</script>
+    <script type="module">import init from '/fe-levels-gui/fe_levels_gui.js';init('/fe-levels-gui/fe_levels_gui_bg.wasm');</script>
     <!-- this is the base url relative to which other urls will be constructed. trunk will insert this from the public-url option -->
-    <base href="/">
+    <base href="/fe-levels-gui/">
 
-    <link rel="icon" href="/favicon.ico">
+    <link rel="icon" href="/fe-levels-gui/favicon.ico">
 
 
     
@@ -115,8 +115,8 @@
 
     </style>
 
-<link rel="preload" href="/fe_levels_gui_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
-<link rel="modulepreload" href="/fe_levels_gui.js"></head>
+<link rel="preload" href="/fe-levels-gui/fe_levels_gui_bg.wasm" as="fetch" type="application/wasm" crossorigin="">
+<link rel="modulepreload" href="/fe-levels-gui/fe_levels_gui.js"></head>
 
 <body>
     <!-- The WASM code will resize the canvas dynamically -->

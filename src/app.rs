@@ -38,7 +38,7 @@ struct StatIndexType(usize, GameKind);
 
 impl PartialOrd for StatIndexType {
     fn partial_cmp(&self, other : &Self) -> Option<std::cmp::Ordering> {
-        Some(Self::cmp(&self, other))
+        Some(Self::cmp(self, other))
     }
 }
 
@@ -57,7 +57,7 @@ impl fmt::Display for StatIndexType {
             "{}",
             look_up_iteration_order(*kind)
                 .get(*id)
-                .ok_or(fmt::Error::default())?
+                .ok_or_else(|| fmt::Error::default())?
         )
     }
 }
@@ -283,11 +283,10 @@ fn generate_default_gamedata(game_option : GameKind) -> GameData {
 }
 
 fn look_up_iteration_order(game : GameKind) -> Vec<&'static str> {
-    let stat_list = match game {
+    match game {
         GameKind::GbaFe => Vec::from(GBA_FE_ORDER),
         GameKind::PoR => Vec::from(POR_ORDER)
-    };
-    stat_list
+    }
 }
 
 fn numerical_text_box<T : Display + FromStr>(ui : &mut Ui, value : &mut T) {
@@ -831,10 +830,10 @@ impl FeLevelGui {
                             data.characters.insert(data.character.name.clone(), (data.character.clone(), data.progression.clone()));
                         }
                     }
-                    else {
+                    else 
                         if ui.add_enabled(!data.character.name.is_empty(), Button::new("overwrite character & progression")).clicked() {
                             data.characters.insert(data.character.name.clone(), (data.character.clone(), data.progression.clone()));
-                        }
+                        
                     }
 
                     ui.add_enabled_ui(
@@ -907,7 +906,7 @@ impl FeLevelGui {
                         matches!(data.character_code_edit_mode, CodeEditMode::Export)
                             || matches!(&data.character_code_edit_mode, CodeEditMode::Importing(s)
                              if check_legal_name(&serde_json::from_str::<(Character<StatIndexType>,Vec<ConcreteStatChange>)>(s).map(|(char, _progression)| char.name)
-                             .unwrap_or("".to_string()), &data.characters)),
+                             .unwrap_or_else(|_|"".to_string()), &data.characters)),
                         Button::new("import json")
                     ).clicked() {
                         match &mut data.character_code_edit_mode {
@@ -928,8 +927,7 @@ impl FeLevelGui {
                         |ui, range| {
                             for name in data
                                 .characters
-                                .iter()
-                                .map(|(name, _)| name)
+                                .keys()
                                 .take(range.end)
                                 .skip(range.start)
                             {
@@ -945,7 +943,7 @@ impl FeLevelGui {
                     let ui = &mut uis[2];
                     match &mut data.character_code_edit_mode {
                         CodeEditMode::Export => {
-                            let copied_export = extract_character(&data).unwrap_or("".to_string());
+                            let copied_export = extract_character(data).unwrap_or_else(||"".to_string());
                             ui.add(
                                 TextEdit::multiline(&mut copied_export.as_str())
                                     .code_editor()
@@ -1082,8 +1080,7 @@ impl FeLevelGui {
                         |ui, range| {
                             for name in data
                                 .promotions
-                                .iter()
-                                .map(|(name, _)| name)
+                                .keys()
                                 .take(range.end)
                                 .skip(range.start)
                             {
@@ -1099,7 +1096,7 @@ impl FeLevelGui {
                     let ui = &mut uis[2];
                     match &mut data.promotion_code_edit_mode {
                         CodeEditMode::Export => {
-                            let copied_export = extract_promotion(&data).unwrap_or("".to_string());
+                            let copied_export = extract_promotion(data).unwrap_or_else(||"".to_string());
                             ui.add(
                                 TextEdit::multiline(&mut copied_export.as_str())
                                     .code_editor()
@@ -1223,7 +1220,9 @@ impl FeLevelGui {
                                     })
                                 );
 
-                                c_row_size_rect.map(|x| row_rect = Some(x));
+                                if c_row_size_rect.is_some() {
+                                    row_rect = c_row_size_rect;
+                                }
 
                                 if ui.memory().is_being_dragged(item_id) {
                                     *source_col_row = Some((col_idx, row_idx));
@@ -1760,7 +1759,7 @@ impl FeLevelGui {
                             copied_progression
                                 .get((value - 2.0) as usize)
                                 .map(|sc| format!("after {sc}"))
-                                .unwrap_or("".to_owned())
+                                .unwrap_or_else(|| "".to_owned())
                         }
                         else {
                             "".to_owned()
@@ -1931,36 +1930,31 @@ impl eframe::App for FeLevelGui {
         egui::CentralPanel::default().show(ctx, |_| {});
 
         Self::character_builder(
-            &mut self
-                .game_data
+            self.game_data
                 .entry(self.game_option)
                 .or_insert_with(|| generate_default_gamedata(self.game_option)),
             ctx
         );
         Self::character_progression_builder(
-            &mut self
-                .game_data
+            self.game_data
                 .entry(self.game_option)
                 .or_insert_with(|| generate_default_gamedata(self.game_option)),
             ctx
         );
         Self::data_plotting_windows(
-            &mut self
-                .game_data
+            self.game_data
                 .entry(self.game_option)
                 .or_insert_with(|| generate_default_gamedata(self.game_option)),
             ctx
         );
         Self::data_manager(
-            &mut self
-                .game_data
+            self.game_data
                 .entry(self.game_option)
                 .or_insert_with(|| generate_default_gamedata(self.game_option)),
             ctx
         );
         Self::promotion_manager(
-            &mut self
-                .game_data
+            self.game_data
                 .entry(self.game_option)
                 .or_insert_with(|| generate_default_gamedata(self.game_option)),
             ctx

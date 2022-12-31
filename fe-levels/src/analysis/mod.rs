@@ -1,16 +1,33 @@
 use core::ops::Bound::Unbounded;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     ops::{Bound, RangeBounds},
     sync::Arc
 };
 
+use contracts::debug_ensures;
 use itertools::Itertools;
 
 use crate::{
     BlankAvoidance, Character, GrowthType, Stat, StatChange, StatIndexType, StatType,
     GUARANTEED_STAT_POINT_GROWTH
 };
+
+const ERROR_BOUND : f64 = 1e-5;
+
+fn validate_dist<SIT : StatIndexType>(stats : &BTreeMap<SIT, DistributedStat>) -> bool {
+    stats.iter().all(|(_sit, ds)| validate_btree(&ds.stats))
+}
+
+fn validate_out<SIT : StatIndexType>(stats : &Vec<BTreeMap<SIT, BTreeMap<StatType, f64>>>) -> bool {
+    stats
+        .iter()
+        .all(|stat| stat.iter().all(|(_sit, spread)| validate_btree(spread)))
+}
+
+fn validate_btree<K>(stats : &BTreeMap<K, f64>) -> bool {
+    (stats.iter().map(|(_p, prob)| *prob).sum::<f64>() - 1.0).abs() < ERROR_BOUND
+}
 
 #[derive(Clone, Default)]
 struct DistributedStat {
@@ -20,6 +37,7 @@ struct DistributedStat {
     base : StatType
 }
 
+#[debug_ensures(ret.as_ref().map(validate_out).unwrap_or(true))]
 pub(crate) fn binomial_analysis<SIT>(
     levels : &[StatChange<SIT>],
     character : &Character<SIT>
@@ -62,6 +80,7 @@ where
     )
 }
 
+#[debug_ensures(ret.as_ref().map(|dist| validate_dist(dist)).unwrap_or(true))]
 fn process_statchange<SIT : StatIndexType>(
     state : &mut BTreeMap<SIT, DistributedStat>,
     current_level : &StatChange<SIT>
@@ -76,6 +95,7 @@ fn process_statchange<SIT : StatIndexType>(
     }
 }
 
+#[debug_ensures(ret.as_ref().map(|dist| validate_dist(dist)).unwrap_or(true))]
 fn process_levelup<SIT : StatIndexType>(
     state : &mut BTreeMap<SIT, DistributedStat>,
     temporary_growth_override : &Option<Arc<dyn Fn(&SIT, u8) -> u8>>,
@@ -409,6 +429,7 @@ fn handle_fixed_stat_levelup<SIT : StatIndexType>(
     );
 }
 
+#[debug_ensures(ret.as_ref().map(|dist| validate_dist(dist)).unwrap_or(true))]
 fn process_promotion<SIT : StatIndexType>(
     state : &mut BTreeMap<SIT, DistributedStat>,
     promo_changes : &Arc<dyn Fn(&SIT, Stat) -> Stat>
@@ -425,6 +446,7 @@ fn process_promotion<SIT : StatIndexType>(
     Some(state.clone())
 }
 
+#[debug_ensures(validate_btree(&ret.1.stats))]
 fn internal_process_promotion<SIT : StatIndexType>(
     sit : SIT,
     ds : DistributedStat,
@@ -465,7 +487,16 @@ fn internal_process_promotion<SIT : StatIndexType>(
         DistributedStat {
             cap,
             growth,
-            stats : processed.into_iter().map(|(s, p)| (s.value, p)).collect(),
+            stats : processed
+                .into_iter()
+                .map(|(s, p)| (s.value, p))
+                .sorted_by_key(|(k, _v)| *k)
+                .group_by(|(k, _v)| *k)
+                .into_iter()
+                .map(|(points, group)| {
+                    (points, group.into_iter().map(|(_points, prob)| prob).sum())
+                })
+                .collect(),
             base : ds.base
         }
     )

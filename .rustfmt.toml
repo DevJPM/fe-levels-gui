@@ -7,6 +7,6 @@ fn_single_line = true
 format_strings = true
 match_block_trailing_comma = true
 trailing_comma = "Never"
-imports_granularity="Crate"
+imports_granularity = "Crate"
 space_before_colon = true
 wrap_comments = true

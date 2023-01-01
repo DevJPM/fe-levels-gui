@@ -1,9 +1,14 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fmt
+    fmt,
+    ops::Deref
 };
 
-use super::{sit::StatIndexType, CompleteData, ConcreteStatChange, GameData, UsefulId};
+use super::{
+    progression::{ConcreteStatChange, UsefulStatChange},
+    sit::StatIndexType,
+    CompleteData, GameData, UsefulId
+};
 use cached::proc_macro::cached;
 use egui::{
     plot::{
@@ -336,7 +341,7 @@ pub fn actual_data_display(
             let important_marks : BTreeSet<_> = context
                 .progression
                 .iter()
-                .map(ConcreteStatChange::marking_worthy)
+                .map(UsefulStatChange::marking_worthy)
                 .enumerate()
                 .filter(|(_index, val)| *val)
                 .map(|(index, _truthy)| index + 2)
@@ -501,15 +506,13 @@ pub fn data_plotting_windows(context : &mut GameData, ctx : &egui::Context) {
                 context.plotter.derived_data = Some(promise);
             },
             Some((parameters, character, actual_data))
-                if parameters == &context.progression && character == &context.character =>
+                if parameters == context.progression.deref() && character == &context.character =>
             {
-                if (&mut context.plotter).plotter_windows.is_empty() {
-                    (&mut context.plotter)
-                        .plotter_windows
-                        .push(Default::default());
+                if context.plotter.plotter_windows.is_empty() {
+                    context.plotter.plotter_windows.push(Default::default());
                 }
-                let moved_out = std::mem::take(&mut (&mut context.plotter).plotter_windows);
-                (&mut context.plotter).plotter_windows = moved_out
+                let moved_out = std::mem::take(&mut context.plotter.plotter_windows);
+                context.plotter.plotter_windows = moved_out
                     .into_iter()
                     .flat_map(|mut state| {
                         let mut currently_open = true;
@@ -531,21 +534,21 @@ pub fn data_plotting_windows(context : &mut GameData, ctx : &egui::Context) {
                     .flatten()
                     .collect();
 
-                (&mut context.plotter).derived_data = Some(promise);
+                context.plotter.derived_data = Some(promise);
             },
             Some((parameters, character, _actual_data))
-                if parameters != &context.progression || character != &context.character =>
+                if parameters != context.progression.deref() || character != &context.character =>
             {
                 egui::Window::new("Data Plotter").show(ctx, |ui| {
                     ui.spinner();
                     ui.label("Processing...");
                 });
-                (&mut context.plotter).derived_data = None;
+                context.plotter.derived_data = None;
             },
             _ => unreachable!()
         }
     }
-    if (&mut context.plotter).derived_data.is_none() {
+    if context.plotter.derived_data.is_none() {
         if context
             .progression
             .iter()
@@ -587,7 +590,7 @@ pub fn data_plotting_windows(context : &mut GameData, ctx : &egui::Context) {
             {
                 let character = context.character.clone();
                 let progression = context.progression.clone();
-                (&mut context.plotter).derived_data = Some(Promise::spawn_thread(
+                context.plotter.derived_data = Some(Promise::spawn_thread(
                     "Background Compute Thread",
                     move || {
                         (

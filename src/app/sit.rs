@@ -29,7 +29,7 @@ impl fmt::Display for StatIndexType {
             "{}",
             look_up_iteration_order(*kind)
                 .get(*id)
-                .ok_or_else(|| fmt::Error::default())?
+                .ok_or_else(fmt::Error::default)?
         )
     }
 }

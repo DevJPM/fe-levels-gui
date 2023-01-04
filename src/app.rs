@@ -12,7 +12,7 @@ use rand::random;
 use serde::{Deserialize, Serialize};
 
 use self::{
-    manager::{DataManaged, check_legal_name},
+    manager::{check_legal_name, DataManaged},
     plotter::PlotterManager,
     progression::{ConcreteStatChange, ProgressionManager},
     sit::StatIndexType
@@ -162,12 +162,12 @@ impl FeLevelGui {
                     );
                 }
 
-                ui.add_enabled_ui(characters.contains_key(&characters.selected), |ui| {
+                ui.add_enabled_ui(characters.selected().is_some(), |ui| {
                     if ui.button("load character").clicked() {
-                        data.character = characters.get(&characters.selected).unwrap().0.clone();
+                        data.character = characters.selected().unwrap().0.clone();
                     }
                     if ui.button("load progression").clicked() {
-                        *data.progression = characters.get(&characters.selected).unwrap().1.clone();
+                        *data.progression = characters.selected().unwrap().1.clone();
                     }
                 });
             }

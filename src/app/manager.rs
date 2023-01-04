@@ -24,8 +24,8 @@ pub fn check_legal_name<T>(name : &str, data : &BTreeMap<String, T>) -> bool {
 
 #[derive(Serialize, Deserialize)]
 pub struct DataManaged<V> {
-    pub data : BTreeMap<String, V>,
-    pub selected : String,
+    data : BTreeMap<String, V>,
+    selected : String,
     renamed : Option<(String, V)>,
     edit_mode : CodeEditMode
 }
@@ -52,6 +52,10 @@ impl<V> DerefMut for DataManaged<V> {
 }
 
 impl<V : Serialize + for<'a> Deserialize<'a>> DataManaged<V> {
+    pub fn selected(&self) -> Option<&V> {
+        self.data.get(&self.selected)
+    }
+
     fn extract(&self) -> Option<String> {
         serde_json::to_string(self.data.get(&self.selected)?).ok()
     }

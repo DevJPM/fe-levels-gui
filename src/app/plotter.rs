@@ -483,7 +483,7 @@ pub fn actual_data_display(
     }
 }
 
-fn find_percentile(stat : &BTreeMap<u8, f64>, percentile : f64) -> Option<f64> {
+fn find_percentile(stat : &BTreeMap<StatType, f64>, percentile : f64) -> Option<f64> {
     stat.iter()
         .scan(0.0, |acc, (points, prob)| {
             *acc += prob;

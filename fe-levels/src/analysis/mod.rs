@@ -98,7 +98,7 @@ fn process_statchange<SIT : StatIndexType>(
 #[debug_ensures(ret.as_ref().map(|dist| validate_dist(dist)).unwrap_or(true))]
 fn process_levelup<SIT : StatIndexType>(
     state : &mut BTreeMap<SIT, DistributedStat>,
-    temporary_growth_override : &Option<Arc<dyn Fn(&SIT, u8) -> u8>>,
+    temporary_growth_override : &Option<Arc<dyn Fn(&SIT, GrowthType) -> GrowthType>>,
     blank_avoidance : &BlankAvoidance<SIT>
 ) -> Option<BTreeMap<SIT, DistributedStat>> {
     let old_ref = state.clone();
@@ -200,7 +200,7 @@ fn process_levelup<SIT : StatIndexType>(
 }
 
 fn handle_guaranteed_stat_levelup<SIT>(
-    guaranteed_growths : &BTreeMap<&SIT, u8>,
+    guaranteed_growths : &BTreeMap<&SIT, GrowthType>,
     previous : &BTreeMap<SIT, DistributedStat>,
     probabilistic_growths : &BTreeMap<&SIT, f64>,
     updated_stats : &mut BTreeMap<SIT, DistributedStat>,
@@ -307,7 +307,7 @@ fn handle_guaranteed_stat_levelup_recursive<SIT>(
 */
 
 fn handle_simple_levelup<SIT : StatIndexType>(
-    guaranteed_growths : &BTreeMap<&SIT, u8>,
+    guaranteed_growths : &BTreeMap<&SIT, GrowthType>,
     (sit, ds) : (&SIT, &DistributedStat),
     probabilistic_growths : &BTreeMap<&SIT, f64>,
     updated_stats : &mut BTreeMap<SIT, DistributedStat>
@@ -338,7 +338,7 @@ fn handle_simple_levelup<SIT : StatIndexType>(
 }
 
 fn handle_retried_levelup<SIT : StatIndexType>(
-    guaranteed_growths : &BTreeMap<&SIT, u8>,
+    guaranteed_growths : &BTreeMap<&SIT, GrowthType>,
     (sit, ds) : (&SIT, &DistributedStat),
     probabilistic_growths : &BTreeMap<&SIT, f64>,
     all_zero_prob : f64,
@@ -384,7 +384,7 @@ fn handle_retried_levelup<SIT : StatIndexType>(
 }
 
 fn handle_fixed_stat_levelup<SIT : StatIndexType>(
-    guaranteed_growths : &BTreeMap<&SIT, u8>,
+    guaranteed_growths : &BTreeMap<&SIT, GrowthType>,
     (sit, ds) : (&SIT, &DistributedStat),
     probabilistic_growths : &BTreeMap<&SIT, f64>,
     all_zero_prob : f64,

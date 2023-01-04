@@ -294,7 +294,7 @@ pub fn character_progression_builder(data : &mut GameData, ctx : &egui::Context)
             );
 
             if ui.button("clear all").clicked() {
-                (&mut data.progression.progression).clear();
+                data.progression.progression.clear();
             }
 
             ui.columns(2, |uis| {
@@ -451,7 +451,7 @@ pub fn character_progression_builder(data : &mut GameData, ctx : &egui::Context)
                         if let Some(drag_target_row_position) = drag_target_row_position {
                             let item = match source_col {
                                 BuilderColumn::Levels => {
-                                    (&mut data.progression.progression).remove(source_row)
+                                    data.progression.progression.remove(source_row)
                                 },
                                 BuilderColumn::Templates => {
                                     (&mut data.progression.templates)[source_row].clone()
@@ -460,9 +460,9 @@ pub fn character_progression_builder(data : &mut GameData, ctx : &egui::Context)
 
                             if drop_col == BuilderColumn::Levels {
                                 let insert_index = drag_target_row_position
-                                    .at_most((&mut data.progression.progression).len());
+                                    .at_most(data.progression.progression.len());
                                 match source_col {
-                                    BuilderColumn::Levels => (&mut data.progression.progression)
+                                    BuilderColumn::Levels => data.progression.progression
                                         .insert(insert_index, item),
                                     BuilderColumn::Templates => {
                                         data.progression.queued_insertion =

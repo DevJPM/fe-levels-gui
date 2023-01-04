@@ -9,8 +9,8 @@ use crate::analysis::binomial_analysis;
 
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
-pub use u8 as GrowthType;
-pub use u8 as StatType;
+pub type GrowthType = u16;
+pub type StatType = u16;
 
 pub const GUARANTEED_STAT_POINT_GROWTH : GrowthType = 100;
 

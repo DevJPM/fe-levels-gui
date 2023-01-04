@@ -4,7 +4,7 @@ use std::{
     str::FromStr
 };
 
-use egui::{Button, ScrollArea, TextEdit, Ui};
+use egui::{Button, Ui};
 use fe_levels::{Character, StatType};
 use itertools::Itertools;
 
@@ -12,11 +12,13 @@ use rand::random;
 use serde::{Deserialize, Serialize};
 
 use self::{
+    manager::{DataManaged, check_legal_name},
     plotter::PlotterManager,
     progression::{ConcreteStatChange, ProgressionManager},
     sit::StatIndexType
 };
 
+mod manager;
 mod plotter;
 mod progression;
 mod sit;
@@ -42,13 +44,6 @@ enum StatChangeTemplate {
     LevelUp
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Hash, PartialEq, Eq, Default)]
-enum CodeEditMode {
-    #[default]
-    Export,
-    Importing(String)
-}
-
 #[derive(Deserialize, Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct GameData {
@@ -59,16 +54,8 @@ pub struct GameData {
 
     progression : ProgressionManager,
 
-    promotions : BTreeMap<String, Character<StatIndexType>>,
-    characters : BTreeMap<String, (Character<StatIndexType>, Vec<ConcreteStatChange>)>,
-
-    selected_promotion : String,
-    renamed_promotion : Option<Character<StatIndexType>>,
-    promotion_code_edit_mode : CodeEditMode,
-
-    selected_character : String,
-    renamed_character : Option<(Character<StatIndexType>, Vec<ConcreteStatChange>)>,
-    character_code_edit_mode : CodeEditMode
+    promotions : DataManaged<Character<StatIndexType>>,
+    characters : DataManaged<(Character<StatIndexType>, Vec<ConcreteStatChange>)>
 }
 
 impl Default for GameData {
@@ -91,13 +78,7 @@ fn generate_default_gamedata(game_option : GameKind) -> GameData {
         game_option,
         progression : Default::default(),
         promotions : Default::default(),
-        characters : Default::default(),
-        selected_promotion : Default::default(),
-        renamed_promotion : Default::default(),
-        promotion_code_edit_mode : Default::default(),
-        selected_character : Default::default(),
-        renamed_character : Default::default(),
-        character_code_edit_mode : Default::default()
+        characters : Default::default()
     }
 }
 
@@ -155,340 +136,48 @@ impl FeLevelGui {
     }
 
     fn data_manager(data : &mut GameData, ctx : &egui::Context) {
-        let inner_rect = egui::Window::new("Character & Progression Manager")
-            .collapsible(data.renamed_character.is_none())
-            .show(ctx, |ui| {
-                ui.set_enabled(data.renamed_character.is_none());
-                ui.columns(3, |uis| {
-                    let ui = &mut uis[1];
-
-                    if check_legal_name(&data.character.name, &data.characters) {
-                        if ui.button("save character & progression").clicked() {
-                            data.characters.insert(data.character.name.clone(), (data.character.clone(), data.progression.clone()));
-                        }
+        data.characters.management_dialogue(
+            ctx,
+            "Character & Progression Manager",
+            |(c, _p)| c.name.clone(),
+            |ui, characters| {
+                if check_legal_name(&data.character.name, characters) {
+                    if ui.button("save character & progression").clicked() {
+                        characters.insert(
+                            data.character.name.clone(),
+                            (data.character.clone(), data.progression.clone())
+                        );
                     }
-                    else if ui.add_enabled(!data.character.name.is_empty(), Button::new("overwrite character & progression")).clicked() {
-                        data.characters.insert(data.character.name.clone(), (data.character.clone(), data.progression.clone()));
-                    }
-
-                    ui.add_enabled_ui(
-                        data.characters.contains_key(&data.selected_character),
-                        |ui| {
-                            if ui.button("load character").clicked() {
-                                data.character = data.characters.get(&data.selected_character).unwrap().0.clone();
-                            }
-                            if ui.button("load progression").clicked() {
-                                *data.progression = data.characters.get(&data.selected_character).unwrap().1.clone();
-                            }
-                            if ui.button("delete").clicked() {
-                                data.characters.remove(&data.selected_character);
-                            }
-                            if ui.button("rename").clicked() {
-                                data.renamed_character =
-                                    data.characters.remove(&data.selected_character);
-                            }
-                            #[cfg(not(target_arch = "wasm32"))]
-                            {
-                                if ui.button("copy to clipboard").clicked() {
-                                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                                        let _best_effort = clipboard.set_text(
-                                            serde_json::to_string(
-                                                &data.characters.get(&data.selected_character)
-                                            )
-                                            .unwrap()
-                                        );
-                                    }
-                                }
-                            }
-                        }
+                }
+                else if ui
+                    .add_enabled(
+                        !data.character.name.is_empty(),
+                        Button::new("overwrite character & progression")
+                    )
+                    .clicked()
+                {
+                    characters.insert(
+                        data.character.name.clone(),
+                        (data.character.clone(), data.progression.clone())
                     );
+                }
 
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        let mut clipboard_copied_character : Option<(Character<StatIndexType>,Vec<ConcreteStatChange>)> = None;
-                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                            if let Ok(text) = clipboard.get_text() {
-                                if let Ok(parse) =
-                                    serde_json::from_str::<(Character<StatIndexType>,Vec<ConcreteStatChange>)>(&text)
-                                {
-                                    if !check_legal_name(&parse.0.name, &data.characters) {
-                                        clipboard_copied_character = Some(parse);
-                                    }
-                                }
-                            }
-                            ui.add_enabled_ui(clipboard_copied_character.is_some(), |ui| {
-                                if ui.button("import from clipboard").clicked() {
-                                    if let Some(clipboard_copied_promotion) =
-                                        clipboard_copied_character
-                                    {
-                                        data.characters.insert(
-                                            clipboard_copied_promotion.0.name.clone(),
-                                            clipboard_copied_promotion
-                                        );
-                                    }
-                                }
-                            });
-                        }
+                ui.add_enabled_ui(characters.contains_key(&characters.selected), |ui| {
+                    if ui.button("load character").clicked() {
+                        data.character = characters.get(&characters.selected).unwrap().0.clone();
                     }
-
-                    if ui.add_enabled(
-                        data.character_code_edit_mode != CodeEditMode::Export,
-                        Button::new("export json")
-                    ).clicked() {
-                        data.character_code_edit_mode = CodeEditMode::Export;
-                    }
-                    if ui.add_enabled(
-                        matches!(data.character_code_edit_mode, CodeEditMode::Export)
-                            || matches!(&data.character_code_edit_mode, CodeEditMode::Importing(s)
-                             if check_legal_name(&serde_json::from_str::<(Character<StatIndexType>,Vec<ConcreteStatChange>)>(s).map(|(char, _progression)| char.name)
-                             .unwrap_or_else(|_|"".to_string()), &data.characters)),
-                        Button::new("import json")
-                    ).clicked() {
-                        match &mut data.character_code_edit_mode {
-                            CodeEditMode::Export => {data.character_code_edit_mode = CodeEditMode::Importing("".to_string());}
-                            CodeEditMode::Importing(s) => {
-                                let character : (Character<StatIndexType>, Vec<ConcreteStatChange>) = serde_json::from_str(s).unwrap();
-                                data.characters.insert(character.0.name.clone(), character);
-                                s.clear();
-                             }
-                        }
-                    }
-
-                    let ui = &mut uis[0];
-                    ScrollArea::vertical().show_rows(
-                        ui,
-                        ui.text_style_height(&egui::TextStyle::Body),
-                        data.characters.len(),
-                        |ui, range| {
-                            for name in data
-                                .characters
-                                .keys()
-                                .take(range.end)
-                                .skip(range.start)
-                            {
-                                ui.selectable_value(
-                                    &mut data.selected_character,
-                                    name.to_owned(),
-                                    name
-                                );
-                            }
-                        }
-                    );
-
-                    let ui = &mut uis[2];
-                    match &mut data.character_code_edit_mode {
-                        CodeEditMode::Export => {
-                            let copied_export = extract_character(data).unwrap_or_default();
-                            ui.add(
-                                TextEdit::multiline(&mut copied_export.as_str())
-                                    .code_editor()
-                                    .desired_width(0.0)
-                            );
-                        },
-                        CodeEditMode::Importing(s) => {
-                            ui.label("Paste the json here and then confirm by clicking \"import json\" again:");
-                            ui.add(
-                                TextEdit::multiline(s)
-                                    .code_editor()
-                                    .desired_width(0.0)
-                            );
-                        },
+                    if ui.button("load progression").clicked() {
+                        *data.progression = characters.get(&characters.selected).unwrap().1.clone();
                     }
                 });
-            });
-        if let Some(mut renamed) = std::mem::take(&mut data.renamed_character) {
-            egui::Window::new("Renaming Character")
-                .collapsible(false)
-                .fixed_rect(inner_rect.unwrap().response.rect)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Character name: ");
-                        ui.text_edit_singleline(&mut renamed.0.name);
-                    });
-                    if ui
-                        .add_enabled(
-                            check_legal_name(&renamed.0.name, &data.characters),
-                            Button::new("confirm")
-                        )
-                        .clicked()
-                    {
-                        data.characters.insert(renamed.0.name.clone(), renamed);
-                    }
-                    else {
-                        data.renamed_character = Some(renamed);
-                    }
-                });
-        }
+            }
+        );
     }
 
     fn promotion_manager(data : &mut GameData, ctx : &egui::Context) {
-        let inner_rect = egui::Window::new("Promotion Manager")
-            .collapsible(data.renamed_promotion.is_none())
-            .show(ctx, |ui| {
-                ui.set_enabled(data.renamed_promotion.is_none());
-                ui.columns(3, |uis| {
-                    let ui = &mut uis[1];
-
-                    ui.add_enabled_ui(
-                        data.promotions.contains_key(&data.selected_promotion),
-                        |ui| {
-                            if ui.button("delete").clicked() {
-                                data.promotions.remove(&data.selected_promotion);
-                            }
-                            if ui.button("rename").clicked() {
-                                data.renamed_promotion =
-                                    data.promotions.remove(&data.selected_promotion);
-                            }
-                            #[cfg(not(target_arch = "wasm32"))]
-                            {
-                                if ui.button("copy to clipboard").clicked() {
-                                    if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                                        let _best_effort = clipboard.set_text(
-                                            serde_json::to_string(
-                                                &data.promotions.get(&data.selected_promotion)
-                                            )
-                                            .unwrap()
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    );
-
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        let mut clipboard_copied_promotion : Option<Character<StatIndexType>> = None;
-
-                        if let Ok(mut clipboard) = arboard::Clipboard::new() {
-                            if let Ok(text) = clipboard.get_text() {
-                                if let Ok(parse) =
-                                    serde_json::from_str::<Character<StatIndexType>>(&text)
-                                {
-                                    if !data.promotions.contains_key(&parse.name) {
-                                        clipboard_copied_promotion = Some(parse);
-                                    }
-                                }
-                            }
-                            ui.add_enabled_ui(clipboard_copied_promotion.is_some(), |ui| {
-                                if ui.button("import from clipboard").clicked() {
-                                    if let Some(clipboard_copied_promotion) =
-                                        clipboard_copied_promotion
-                                    {
-                                        data.promotions.insert(
-                                            clipboard_copied_promotion.name.clone(),
-                                            clipboard_copied_promotion
-                                        );
-                                    }
-                                }
-                            });
-                        }
-                    }
-
-                    if ui.add_enabled(
-                        data.promotion_code_edit_mode != CodeEditMode::Export,
-                        Button::new("export json")
-                    ).clicked() {
-                        data.promotion_code_edit_mode = CodeEditMode::Export;
-                    }
-                    if ui.add_enabled(
-                        matches!(data.promotion_code_edit_mode, CodeEditMode::Export)
-                            || matches!(&data.promotion_code_edit_mode, CodeEditMode::Importing(s)
-                             if check_legal_name(&serde_json::from_str(s)
-                             .unwrap_or(StatIndexType::new_default_character(data.game_option).name), &data.promotions)),
-                        Button::new("import json")
-                    ).clicked() {
-                        match &mut data.promotion_code_edit_mode {
-                            CodeEditMode::Export => {data.promotion_code_edit_mode = CodeEditMode::Importing("".to_string());}
-                            CodeEditMode::Importing(s) => {
-                                let promotion : Character<StatIndexType> = serde_json::from_str(s).unwrap();
-                                data.promotions.insert(promotion.name.clone(), promotion);
-                                s.clear();
-                             }
-                        }
-                    }
-
-                    let ui = &mut uis[0];
-                    ScrollArea::vertical().show_rows(
-                        ui,
-                        ui.text_style_height(&egui::TextStyle::Body),
-                        data.promotions.len(),
-                        |ui, range| {
-                            for name in data
-                                .promotions
-                                .keys()
-                                .take(range.end)
-                                .skip(range.start)
-                            {
-                                ui.selectable_value(
-                                    &mut data.selected_promotion,
-                                    name.to_owned(),
-                                    name
-                                );
-                            }
-                        }
-                    );
-
-                    let ui = &mut uis[2];
-                    match &mut data.promotion_code_edit_mode {
-                        CodeEditMode::Export => {
-                            let copied_export = extract_promotion(data).unwrap_or_default();
-                            ui.add(
-                                TextEdit::multiline(&mut copied_export.as_str())
-                                    .code_editor()
-                                    .desired_width(0.0)
-                            );
-                        },
-                        CodeEditMode::Importing(s) => {
-                            ui.label("Paste the json here and then confirm by clicking \"import json\" again:");
-                            ui.add(
-                                TextEdit::multiline(s)
-                                    .code_editor()
-                                    .desired_width(0.0)
-                            );
-                        },
-                    }
-                });
-            });
-        if let Some(mut renamed) = std::mem::take(&mut data.renamed_promotion) {
-            egui::Window::new("Renaming Promotion")
-                .collapsible(false)
-                .fixed_rect(inner_rect.unwrap().response.rect)
-                .show(ctx, |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Promotion name: ");
-                        ui.text_edit_singleline(&mut renamed.name);
-                    });
-                    if ui
-                        .add_enabled(
-                            check_legal_name(&renamed.name, &data.promotions),
-                            Button::new("confirm")
-                        )
-                        .clicked()
-                    {
-                        data.promotions.insert(renamed.name.clone(), renamed);
-                    }
-                    else {
-                        data.renamed_promotion = Some(renamed);
-                    }
-                });
-        }
+        data.promotions
+            .management_dialogue(ctx, "Promotion Manager", |c| c.name.clone(), |_, _| {})
     }
-}
-
-fn check_legal_name<T>(name : &str, data : &BTreeMap<String, T>) -> bool {
-    !name.is_empty()
-        && !data
-            .iter()
-            .map(|(name, _data)| name.to_lowercase())
-            .contains(&name.to_lowercase())
-}
-
-fn extract_promotion(data : &GameData) -> Option<String> {
-    serde_json::to_string(data.promotions.get(&data.selected_promotion)?).ok()
-}
-
-fn extract_character(data : &GameData) -> Option<String> {
-    serde_json::to_string(data.characters.get(&data.selected_character)?).ok()
 }
 
 impl eframe::App for FeLevelGui {

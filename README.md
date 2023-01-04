@@ -4,9 +4,8 @@ This is the repository holding a GUI to predict and analyze Fire Emblem Level-Up
 
 ## To-Do
 
-- Support for arbitrary, game-relevant character progressions (and not just 5 straight unboosted levels)
+- Support for Probability Assisted Combat Previews, so for example to see how well a 20/15 Hector does against a chapter 30 enemy using an actual combat preview and then allowing for different RNG luck values
 - Support for starting levels that are not 1
-- Support for saving, loading, exporting and importing basic characters and their progressions
 - Real support for more than GBA-Fire Emblem
 - Research into how exactly each game handles level-ups (and how they try to avoid blank level-ups)
 - Analytical support for the games / mechanics that can be analytically supported

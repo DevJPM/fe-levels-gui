@@ -385,7 +385,7 @@ pub fn character_progression_builder(data : &mut GameData, ctx : &egui::Context)
                                 ui.label(format!(
                                     "(#{}) {item} to {}",
                                     row_idx + 2,
-                                    find_row_level(&copy, row_idx).unwrap()
+                                    find_row_level(data.character.level, &copy, row_idx).unwrap()
                                 ));
                             }
                             else {
@@ -462,8 +462,9 @@ pub fn character_progression_builder(data : &mut GameData, ctx : &egui::Context)
                                 let insert_index = drag_target_row_position
                                     .at_most(data.progression.progression.len());
                                 match source_col {
-                                    BuilderColumn::Levels => data.progression.progression
-                                        .insert(insert_index, item),
+                                    BuilderColumn::Levels => {
+                                        data.progression.progression.insert(insert_index, item)
+                                    },
                                     BuilderColumn::Templates => {
                                         data.progression.queued_insertion =
                                             Some((insert_index, item))
@@ -504,8 +505,12 @@ pub fn character_progression_builder(data : &mut GameData, ctx : &egui::Context)
     }
 }
 
-fn find_row_level(progression : &[ConcreteStatChange], row_idx : usize) -> Option<usize> {
-    let mut current_level = 1;
+fn find_row_level(
+    base_level : usize,
+    progression : &[ConcreteStatChange],
+    row_idx : usize
+) -> Option<usize> {
+    let mut current_level = base_level;
     for (row, csc) in progression.iter().enumerate() {
         if csc.increases_level_counter() {
             current_level += 1;

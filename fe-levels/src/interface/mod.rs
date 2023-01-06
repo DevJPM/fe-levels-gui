@@ -37,7 +37,8 @@ impl Stat {
 pub struct Character<SIT : StatIndexType> {
     #[serde_as(as = "Vec<(_, _)>")]
     pub stats : BTreeMap<SIT, Stat>,
-    pub name : String
+    pub name : String,
+    pub level : usize
 }
 
 // TODO: handle FE11 dynamic growths

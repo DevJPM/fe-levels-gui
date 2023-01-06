@@ -3,7 +3,7 @@ use std::{
     ops::{Deref, DerefMut}
 };
 
-use egui::{Button, ScrollArea, TextEdit, Ui, WidgetText};
+use egui::{Button, Rect, ScrollArea, TextEdit, Ui};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -12,14 +12,6 @@ enum CodeEditMode {
     #[default]
     Export,
     Importing(String)
-}
-
-pub fn check_legal_name<T>(name : &str, data : &BTreeMap<String, T>) -> bool {
-    !name.is_empty()
-        && !data
-            .iter()
-            .map(|(name, _data)| name.to_lowercase())
-            .contains(&name.to_lowercase())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -51,11 +43,20 @@ impl<V> DerefMut for DataManaged<V> {
     fn deref_mut(&mut self) -> &mut Self::Target { &mut self.data }
 }
 
-impl<V : Serialize + for<'a> Deserialize<'a>> DataManaged<V> {
-    pub fn selected(&self) -> Option<&V> {
-        self.data.get(&self.selected)
-    }
+impl<V> DataManaged<V> {
+    pub fn selected(&self) -> Option<&V> { self.data.get(&self.selected) }
 
+    pub fn check_legal_name(&self, name : &str) -> bool {
+        !name.is_empty()
+            && !self
+                .data
+                .iter()
+                .map(|(name, _data)| name.to_lowercase())
+                .contains(&name.to_lowercase())
+    }
+}
+
+impl<V : Serialize + for<'a> Deserialize<'a>> DataManaged<V> {
     fn extract(&self) -> Option<String> {
         serde_json::to_string(self.data.get(&self.selected)?).ok()
     }
@@ -63,14 +64,17 @@ impl<V : Serialize + for<'a> Deserialize<'a>> DataManaged<V> {
     pub fn management_dialogue(
         &mut self,
         ctx : &egui::Context,
-        window_title : impl Into<WidgetText>,
+        external_modal_open : bool,
+        window_title : &str,
         deserialize_name : impl Fn(&V) -> String,
         buttons : impl FnOnce(&mut Ui, &mut Self)
-    ) {
-        let inner_rect = egui::Window::new(window_title)
-            .collapsible(self.renamed.is_none())
+    ) -> Option<Rect> {
+        let modal_open = external_modal_open || self.renamed.is_some();
+        let window_response = egui::Window::new(window_title)
+            .collapsible(!modal_open)
             .show(ctx, |ui| {
-                ui.set_enabled(self.renamed.is_none());
+                ui.set_enabled(!modal_open);
+                let out_rect = ui.available_rect_before_wrap();
                 ui.columns(3, |uis| {
                     let ui = &mut uis[1];
 
@@ -189,18 +193,23 @@ impl<V : Serialize + for<'a> Deserialize<'a>> DataManaged<V> {
                         }
                     }
                 });
+                out_rect
             });
+        let modal_rect = window_response.map(|response| response.response.rect);
+
+        let copy_rect = modal_rect.clone();
+
         if let Some((mut name, item)) = std::mem::take(&mut self.renamed) {
             egui::Window::new("Renaming Promotion")
                 .collapsible(false)
-                .fixed_rect(inner_rect.unwrap().response.rect)
+                .fixed_rect(modal_rect.unwrap())
                 .show(ctx, |ui| {
                     ui.horizontal(|ui| {
                         ui.label("Promotion name: ");
                         ui.text_edit_singleline(&mut name);
                     });
                     if ui
-                        .add_enabled(check_legal_name(&name, &self.data), Button::new("confirm"))
+                        .add_enabled(self.check_legal_name(&name), Button::new("confirm"))
                         .clicked()
                     {
                         self.data.insert(name, item);
@@ -210,12 +219,14 @@ impl<V : Serialize + for<'a> Deserialize<'a>> DataManaged<V> {
                     }
                 });
         }
+
+        copy_rect
     }
 
     fn check_importable_text(&self, deserialize_name : &impl Fn(&V) -> String) -> bool {
         if let CodeEditMode::Importing(s) = &self.edit_mode {
             if let Ok(parsed) = serde_json::from_str(s) {
-                return check_legal_name(&deserialize_name(&parsed), &self.data);
+                return self.check_legal_name(&deserialize_name(&parsed));
             }
         }
         false

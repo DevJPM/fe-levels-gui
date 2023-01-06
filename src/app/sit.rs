@@ -1,6 +1,6 @@
 use std::fmt;
 
-use fe_levels::{Character, Stat};
+use fe_levels::{Character, Stat, StatType};
 use serde::{Deserialize, Serialize};
 
 use super::GameKind;
@@ -58,6 +58,15 @@ impl StatIndexType {
             }
     }
 
+    /// returns true iff the stat is relevant for weight calculations
+    pub fn is_con(&self) -> bool {
+        self.0
+            == match self.1 {
+                GameKind::GbaFe => 7,
+                GameKind::PoR => 1
+            }
+    }
+
     pub fn default_stat(&self) -> Stat {
         let Self(_index, game) = self;
         match game {
@@ -68,13 +77,16 @@ impl StatIndexType {
                 else if self.is_luck() {
                     30
                 }
+                else if self.is_con() {
+                    25
+                }
                 else {
                     20
                 };
                 Stat {
                     base : cap / 4,
                     cap,
-                    growth : 40,
+                    growth : if self.is_con() { 0 } else { 40 },
                     value : cap / 4
                 }
             },
@@ -101,7 +113,26 @@ impl StatIndexType {
                 .into_iter()
                 .map(|sit| (sit, sit.default_stat()))
                 .collect(),
-            name : "".to_string()
+            name : "".to_string(),
+            level : 1
+        }
+    }
+
+    pub fn new_default_enemy(game_option : GameKind) -> Character<Self> {
+        Character {
+            stats : Self::new(game_option)
+                .into_iter()
+                .map(|sit| (sit, sit.default_stat()))
+                .map(|(sit, mut stat)| {
+                    (sit, {
+                        stat.cap = StatType::MAX;
+                        stat.growth = 0;
+                        stat
+                    })
+                })
+                .collect(),
+            name : "".to_string(),
+            level : 1
         }
     }
 }
@@ -109,7 +140,7 @@ impl StatIndexType {
 const TEMPLATE_INDEX : usize = 100;
 pub const fn template_stat(game : GameKind) -> StatIndexType { StatIndexType(TEMPLATE_INDEX, game) }
 
-const GBA_FE_ORDER : [&str; 7] = ["HP", "Atk", "Skl", "Spd", "Lck", "Def", "Res"];
+const GBA_FE_ORDER : [&str; 8] = ["HP", "Atk", "Skl", "Spd", "Lck", "Def", "Res", "Con"];
 const POR_ORDER : [&str; 8] = ["HP", "Str", "Mag", "SKl", "Spd", "Lck", "Def", "Res"];
 
 fn look_up_iteration_order(game : GameKind) -> Vec<&'static str> {

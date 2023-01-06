@@ -5,7 +5,7 @@ use fe_levels::{BlankAvoidance, Character, StatChange};
 use serde::{Deserialize, Serialize};
 
 use crate::app::{
-    check_legal_name, numerical_text_box,
+    numerical_text_box,
     sit::{template_stat, StatIndexType},
     GameData, GameKind
 };
@@ -156,7 +156,7 @@ impl UsefulStatChange for GbaFeStatChange {
 
                             if ui
                                 .add_enabled(
-                                    check_legal_name(&promotion_gains.name, &context.promotions),
+                                    context.promotions.check_legal_name(&promotion_gains.name),
                                     Button::new("save")
                                 )
                                 .on_disabled_hover_text(
@@ -229,7 +229,8 @@ impl UsefulStatChange for GbaFeStatChange {
                         (sit, stat)
                     })
                     .collect(),
-                name : "".to_owned()
+                name : "".to_owned(),
+                level : 1
             }),
         ]
     }

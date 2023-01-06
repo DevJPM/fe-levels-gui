@@ -4,7 +4,7 @@ use std::{
     str::FromStr
 };
 
-use egui::{Button, Ui};
+use egui::{Button, TextEdit, Ui};
 use fe_levels::{Character, StatType};
 use itertools::Itertools;
 
@@ -12,16 +12,18 @@ use rand::random;
 use serde::{Deserialize, Serialize};
 
 use self::{
-    manager::{check_legal_name, DataManaged},
+    manager::DataManaged,
     plotter::PlotterManager,
     progression::{ConcreteStatChange, ProgressionManager},
-    sit::StatIndexType
+    sit::StatIndexType,
+    weapon::{UsableWeapon, Weapon}
 };
 
 mod manager;
 mod plotter;
 mod progression;
 mod sit;
+mod weapon;
 
 type CompleteData = Vec<BTreeMap<StatIndexType, BTreeMap<StatType, f64>>>;
 
@@ -50,12 +52,16 @@ pub struct GameData {
     plotter : PlotterManager,
 
     character : Character<StatIndexType>,
+    enemy : Option<Character<StatIndexType>>,
+    weapon : Option<Weapon>,
     game_option : GameKind,
 
     progression : ProgressionManager,
 
     promotions : DataManaged<Character<StatIndexType>>,
-    characters : DataManaged<(Character<StatIndexType>, Vec<ConcreteStatChange>)>
+    characters : DataManaged<(Character<StatIndexType>, Vec<ConcreteStatChange>)>,
+    enemies : DataManaged<Character<StatIndexType>>,
+    weapons : DataManaged<Weapon>
 }
 
 impl Default for GameData {
@@ -63,12 +69,24 @@ impl Default for GameData {
 }
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
-#[derive(Deserialize, Serialize, Default)]
+#[derive(Deserialize, Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct FeLevelGui {
+    version : u64,
+
     game_option : GameKind,
 
     game_data : HashMap<GameKind, GameData>
+}
+
+impl Default for FeLevelGui {
+    fn default() -> Self {
+        Self {
+            version : 2,
+            game_option : Default::default(),
+            game_data : Default::default()
+        }
+    }
 }
 
 fn generate_default_gamedata(game_option : GameKind) -> GameData {
@@ -78,13 +96,17 @@ fn generate_default_gamedata(game_option : GameKind) -> GameData {
         game_option,
         progression : Default::default(),
         promotions : Default::default(),
-        characters : Default::default()
+        characters : Default::default(),
+        enemy : Default::default(),
+        enemies : Default::default(),
+        weapons : Default::default(),
+        weapon : Default::default()
     }
 }
 
 fn numerical_text_box<T : Display + FromStr>(ui : &mut Ui, value : &mut T) {
     let mut text = value.to_string();
-    ui.text_edit_singleline(&mut text);
+    ui.add(TextEdit::singleline(&mut text).desired_width(ui.spacing().text_edit_width));
     if let Ok(parsed) = str::parse(&text) {
         *value = parsed;
     }
@@ -100,7 +122,13 @@ impl FeLevelGui {
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         if let Some(storage) = cc.storage {
-            return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            let state : Self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
+            if state.version < Self::default().version {
+                return Default::default();
+            }
+            else {
+                return state;
+            }
         }
 
         Default::default()
@@ -110,7 +138,12 @@ impl FeLevelGui {
         egui::Window::new("Character Builder").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.label("Name: ");
-                ui.text_edit_singleline(&mut data.character.name);
+                ui.add(
+                    TextEdit::singleline(&mut data.character.name)
+                        .desired_width(ui.spacing().slider_width * 1.5)
+                );
+                ui.label("Level: ");
+                numerical_text_box(ui, &mut data.character.level);
             });
             egui::Grid::new("Character Builder Table").show(ui, |ui| {
                 ui.label("Stat");
@@ -135,13 +168,14 @@ impl FeLevelGui {
         });
     }
 
-    fn data_manager(data : &mut GameData, ctx : &egui::Context) {
+    fn character_manager(data : &mut GameData, ctx : &egui::Context) {
         data.characters.management_dialogue(
             ctx,
+            false,
             "Character & Progression Manager",
             |(c, _p)| c.name.clone(),
             |ui, characters| {
-                if check_legal_name(&data.character.name, characters) {
+                if characters.check_legal_name(&data.character.name) {
                     if ui.button("save character & progression").clicked() {
                         characters.insert(
                             data.character.name.clone(),
@@ -174,9 +208,110 @@ impl FeLevelGui {
         );
     }
 
+    fn enemy_manager(data : &mut GameData, ctx : &egui::Context) {
+        let modal_rect = data.enemies.management_dialogue(
+            ctx,
+            data.enemy.is_some(),
+            "Enemy Manager",
+            |c| c.name.clone(),
+            |ui, enemies| {
+                if ui.button("add").clicked() {
+                    data.enemy = Some(StatIndexType::new_default_enemy(data.game_option));
+                }
+
+                ui.add_enabled_ui(enemies.selected().is_some(), |ui| {
+                    if ui.button("edit").clicked() {
+                        let selected_name = enemies.selected().unwrap().name.clone();
+                        data.enemy = enemies.remove(&selected_name);
+                    }
+                });
+            }
+        );
+
+        if let Some(mut enemy) = std::mem::take(&mut data.enemy) {
+            egui::Window::new("Enemy Builder")
+                .fixed_rect(modal_rect.unwrap())
+                .collapsible(false)
+                .show(ctx, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Name: ");
+                        ui.text_edit_singleline(&mut enemy.name);
+                    });
+                    egui::Grid::new("Enemy Builder Table").show(ui, |ui| {
+                        ui.label("Stat");
+                        ui.label("Value");
+                        ui.end_row();
+
+                        enemy
+                            .stats
+                            .iter_mut()
+                            .sorted_by_key(|(key, _value)| **key)
+                            .for_each(|(key, stat)| {
+                                ui.label(key.to_string());
+                                numerical_text_box(ui, &mut stat.value);
+                                ui.end_row()
+                            });
+                    });
+                    if ui
+                        .add_enabled(
+                            data.enemies.check_legal_name(&enemy.name),
+                            Button::new("confirm")
+                        )
+                        .clicked()
+                    {
+                        data.enemies.insert(enemy.name.clone(), enemy);
+                    }
+                    else {
+                        data.enemy = Some(enemy)
+                    }
+                });
+        }
+    }
+
     fn promotion_manager(data : &mut GameData, ctx : &egui::Context) {
-        data.promotions
-            .management_dialogue(ctx, "Promotion Manager", |c| c.name.clone(), |_, _| {})
+        data.promotions.management_dialogue(
+            ctx,
+            false,
+            "Promotion Manager",
+            |c| c.name.clone(),
+            |_, _| {}
+        );
+    }
+
+    fn weapon_manager(data : &mut GameData, ctx : &egui::Context) {
+        let modal_rect = data.weapons.management_dialogue(
+            ctx,
+            data.weapon.is_some(),
+            "Weapon Manager",
+            |w| w.name().to_owned(),
+            |ui, weapons| {
+                if ui.button("add").clicked() {
+                    data.weapon = Some(Weapon::new(data.game_option));
+                }
+
+                ui.add_enabled_ui(weapons.selected().is_some(), |ui| {
+                    if ui.button("edit").clicked() {
+                        let selected_name = weapons.selected().unwrap().name().to_owned();
+                        data.weapon = weapons.remove(&selected_name);
+                    }
+                });
+            }
+        );
+
+        if let Some(weapon) = std::mem::take(&mut data.weapon) {
+            egui::Window::new("Weapon Builder")
+                .fixed_rect(modal_rect.unwrap())
+                .collapsible(false)
+                .show(ctx, |ui| {
+                    let (weapon, ready) = weapon.clarification_dialogue(data, ui);
+                    if ready {
+                        data.weapons.insert(weapon.name().to_owned(), weapon);
+                    }
+                    else {
+                        data.weapon = Some(weapon);
+                    }
+                });
+        }
     }
 }
 
@@ -201,35 +336,17 @@ impl eframe::App for FeLevelGui {
 
         egui::CentralPanel::default().show(ctx, |_| {});
 
-        Self::character_builder(
-            self.game_data
-                .entry(self.game_option)
-                .or_insert_with(|| generate_default_gamedata(self.game_option)),
-            ctx
-        );
-        progression::character_progression_builder(
-            self.game_data
-                .entry(self.game_option)
-                .or_insert_with(|| generate_default_gamedata(self.game_option)),
-            ctx
-        );
-        plotter::data_plotting_windows(
-            self.game_data
-                .entry(self.game_option)
-                .or_insert_with(|| generate_default_gamedata(self.game_option)),
-            ctx
-        );
-        Self::data_manager(
-            self.game_data
-                .entry(self.game_option)
-                .or_insert_with(|| generate_default_gamedata(self.game_option)),
-            ctx
-        );
-        Self::promotion_manager(
-            self.game_data
-                .entry(self.game_option)
-                .or_insert_with(|| generate_default_gamedata(self.game_option)),
-            ctx
-        );
+        let game_data = self
+            .game_data
+            .entry(self.game_option)
+            .or_insert_with(|| generate_default_gamedata(self.game_option));
+
+        Self::character_builder(game_data, ctx);
+        progression::character_progression_builder(game_data, ctx);
+        plotter::data_plotting_windows(game_data, ctx);
+        Self::character_manager(game_data, ctx);
+        Self::promotion_manager(game_data, ctx);
+        Self::enemy_manager(game_data, ctx);
+        Self::weapon_manager(game_data, ctx);
     }
 }
